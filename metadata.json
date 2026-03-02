@@ -1,0 +1,5 @@
+{
+  "name": "VozLista - Gerenciador de Listas por Voz",
+  "description": "Uma aplicação inteligente para criar e gerenciar listas usando comandos de voz, com exportação para PDF e categorização via IA.",
+  "requestFramePermissions": ["microphone"]
+}
