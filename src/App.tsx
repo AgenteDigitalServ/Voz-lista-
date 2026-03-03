@@ -15,7 +15,10 @@ import {
   CheckCircle2,
   ListTodo,
   Save,
-  Share2
+  Share2,
+  Download,
+  Smartphone,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
@@ -38,6 +41,9 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
   
   const recognitionRef = useRef<any>(null);
 
@@ -136,6 +142,27 @@ export default function App() {
     setItems(prev => prev.filter(item => item.id !== id));
   };
 
+  const startEditing = (item: ListItem) => {
+    setEditingId(item.id);
+    setEditingText(item.text);
+  };
+
+  const saveEdit = () => {
+    if (!editingId) return;
+    if (editingText.trim()) {
+      setItems(prev => prev.map(item => 
+        item.id === editingId ? { ...item, text: editingText.trim() } : item
+      ));
+    }
+    setEditingId(null);
+    setEditingText('');
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditingText('');
+  };
+
   const clearList = () => {
     if (confirm('Tem certeza que deseja limpar toda a lista?')) {
       setItems([]);
@@ -208,7 +235,17 @@ export default function App() {
     setError(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      // Robust API key retrieval for AIS, Vite, and Vercel environments
+      const apiKey = process.env.GEMINI_API_KEY || 
+                    process.env.API_KEY || 
+                    (import.meta as any).env?.VITE_GEMINI_API_KEY || 
+                    (import.meta as any).env?.VITE_API_KEY;
+
+      if (!apiKey) {
+        throw new Error('API Key not found. Please set GEMINI_API_KEY or API_KEY.');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `Categorize os seguintes itens de uma lista em categorias curtas (ex: Compras, Tarefas, Ideias, Saúde). 
@@ -305,10 +342,18 @@ export default function App() {
             <div className="bg-emerald-500 p-2 rounded-xl shadow-lg shadow-emerald-200">
               <ListTodo className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight">VozLista</h1>
+            <h1 className="text-xl font-bold tracking-tight">VozListadeCompras</h1>
           </div>
           
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowInstallModal(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
+              title="Instalar App"
+            >
+              <Smartphone className="w-4 h-4" />
+              Instalar
+            </button>
             <button
               onClick={saveManually}
               disabled={items.length === 0 || isSaving}
@@ -446,6 +491,7 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.9, x: -20 }}
                   className="group bg-white p-4 rounded-2xl border border-stone-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all flex items-center gap-4"
+                  onDoubleClick={() => startEditing(item)}
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -460,7 +506,22 @@ export default function App() {
                         {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <p className="text-stone-800 font-medium">{item.text}</p>
+                    {editingId === item.id ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        onBlur={saveEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveEdit();
+                          if (e.key === 'Escape') cancelEditing();
+                        }}
+                        className="w-full bg-stone-50 border border-emerald-500 rounded-lg px-2 py-1 text-stone-800 font-medium focus:outline-none"
+                      />
+                    ) : (
+                      <p className="text-stone-800 font-medium cursor-text">{item.text}</p>
+                    )}
                   </div>
                   
                   <button
@@ -486,6 +547,75 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Install Modal */}
+      <AnimatePresence>
+        {showInstallModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-stone-100 flex items-center justify-between bg-emerald-500 text-white">
+                <div className="flex items-center gap-3">
+                  <Smartphone className="w-6 h-6" />
+                  <h2 className="text-xl font-bold">Instalar App</h2>
+                </div>
+                <button 
+                  onClick={() => setShowInstallModal(false)}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="bg-blue-50 p-3 rounded-2xl">
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/d/d7/Android_robot.svg" alt="Android" className="w-8 h-8" referrerPolicy="no-referrer" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-stone-800">No Android (Chrome)</h3>
+                      <p className="text-sm text-stone-500 leading-relaxed">
+                        Toque nos <strong>três pontinhos (⋮)</strong> no canto superior e selecione <strong>"Instalar aplicativo"</strong> ou <strong>"Adicionar à tela inicial"</strong>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="bg-stone-100 p-3 rounded-2xl">
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="iOS" className="w-8 h-8" referrerPolicy="no-referrer" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-stone-800">No iPhone (Safari)</h3>
+                      <p className="text-sm text-stone-500 leading-relaxed">
+                        Toque no ícone de <strong>Compartilhar (□ com seta)</strong> e selecione <strong>"Adicionar à Tela de Início"</strong>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 p-4 rounded-2xl flex items-start gap-3 border border-amber-100">
+                  <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    O app funcionará como um aplicativo nativo, com ícone na tela inicial e carregamento mais rápido.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setShowInstallModal(false)}
+                  className="w-full py-4 bg-stone-900 text-white font-bold rounded-2xl hover:bg-stone-800 transition-colors"
+                >
+                  Entendi
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
