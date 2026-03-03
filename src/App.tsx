@@ -342,46 +342,48 @@ export default function App() {
             <div className="bg-emerald-500 p-2 rounded-xl shadow-lg shadow-emerald-200">
               <ListTodo className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight">VozListadeCompras</h1>
+            <h1 className="text-xl font-bold tracking-tight hidden sm:block">VozListadeCompras</h1>
+            <h1 className="text-xl font-bold tracking-tight sm:hidden">VozList</h1>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => setShowInstallModal(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
+              className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
               title="Instalar App"
             >
               <Smartphone className="w-4 h-4" />
-              Instalar
+              <span className="hidden sm:inline">Instalar</span>
             </button>
             <button
               onClick={saveManually}
               disabled={items.length === 0 || isSaving}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 isSaving 
                 ? 'bg-emerald-500 text-white shadow-lg' 
                 : 'text-stone-600 hover:bg-stone-100'
               } disabled:opacity-50`}
             >
               <Save className={`w-4 h-4 ${isSaving ? 'animate-bounce' : ''}`} />
-              {isSaving ? 'Salvo!' : 'Salvar'}
+              <span className="hidden sm:inline">{isSaving ? 'Salvo!' : 'Salvar'}</span>
             </button>
             <button
               onClick={shareList}
               disabled={items.length === 0}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50 transition-colors"
               title="Compartilhar lista"
             >
               <Share2 className="w-4 h-4" />
-              Compartilhar
+              <span className="hidden sm:inline">Compartilhar</span>
             </button>
             <button
               onClick={generatePDF}
               disabled={items.length === 0}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50 transition-colors"
+              title="Gerar PDF"
             >
               <FileDown className="w-4 h-4" />
-              PDF
+              <span className="hidden sm:inline">PDF</span>
             </button>
             <button
               onClick={clearList}
