@@ -46,6 +46,7 @@ export default function App() {
   const [editingText, setEditingText] = useState('');
   
   const recognitionRef = useRef<any>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load items from localStorage on mount
   useEffect(() => {
@@ -69,21 +70,31 @@ export default function App() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
+      recognitionRef.current.continuous = true; // Keep listening
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'pt-BR';
 
+      const resetSilenceTimer = () => {
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          console.log('Stopping due to 8s silence');
+          recognitionRef.current?.stop();
+        }, 8000); // 8 seconds of silence
+      };
+
       recognitionRef.current.onresult = (event: any) => {
+        resetSilenceTimer(); // Reset timer on any speech detected
+        
         let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             const transcript = event.results[i][0].transcript;
             addItem(transcript);
-            setIsListening(false);
+            
             confetti({
-              particleCount: 50,
-              spread: 70,
-              origin: { y: 0.6 }
+              particleCount: 30,
+              spread: 50,
+              origin: { y: 0.8 }
             });
           } else {
             interimTranscript += event.results[i][0].transcript;
@@ -99,20 +110,31 @@ export default function App() {
         // Handle "no-speech" and "aborted" gracefully - they are common and not critical errors
         if (event.error === 'no-speech' || event.error === 'aborted') {
           setIsListening(false);
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           return;
         }
 
         console.error('Speech recognition error:', event.error);
         setError(`Erro no microfone: ${event.error}`);
         setIsListening(false);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      };
+
+      recognitionRef.current.onstart = () => {
+        resetSilenceTimer(); // Start timer when recognition starts
       };
 
       recognitionRef.current.onend = () => {
         setIsListening(false);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       };
     } else {
       setError('Seu navegador não suporta reconhecimento de voz.');
     }
+
+    return () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    };
   }, []);
 
   const toggleListening = () => {
@@ -134,7 +156,7 @@ export default function App() {
       category: 'Geral',
       timestamp: Date.now(),
     };
-    setItems(prev => [newItem, ...prev]);
+    setItems(prev => [...prev, newItem]);
     setInputValue('');
   };
 
