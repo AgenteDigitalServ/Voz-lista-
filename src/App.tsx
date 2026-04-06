@@ -47,6 +47,8 @@ export default function App() {
   
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionTranscriptRef = useRef<string[]>([]);
+  const lastProcessedIndexRef = useRef<number>(-1);
 
   // Load items from localStorage on mount
   useEffect(() => {
@@ -87,27 +89,25 @@ export default function App() {
         
         let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            const transcript = event.results[i][0].transcript;
-            addItem(transcript);
-            
-            confetti({
-              particleCount: 30,
-              spread: 50,
-              origin: { y: 0.8 }
-            });
-          } else {
-            interimTranscript += event.results[i][0].transcript;
+          const result = event.results[i];
+          if (result.isFinal && i > lastProcessedIndexRef.current) {
+            const transcript = result[0].transcript.trim();
+            if (transcript) {
+              sessionTranscriptRef.current.push(transcript);
+            }
+            lastProcessedIndexRef.current = i;
+          } else if (!result.isFinal) {
+            interimTranscript += result[0].transcript;
           }
         }
         
-        if (interimTranscript) {
-          setInputValue(interimTranscript);
-        }
+        // Show the full session transcript in the input field while talking
+        const finalSoFar = sessionTranscriptRef.current.join(', ');
+        setInputValue(finalSoFar + (interimTranscript ? (finalSoFar ? ', ' : '') + interimTranscript : ''));
       };
 
       recognitionRef.current.onerror = (event: any) => {
-        // Handle "no-speech" and "aborted" gracefully - they are common and not critical errors
+        // Handle "no-speech" and "aborted" gracefully
         if (event.error === 'no-speech' || event.error === 'aborted') {
           setIsListening(false);
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -121,12 +121,29 @@ export default function App() {
       };
 
       recognitionRef.current.onstart = () => {
-        resetSilenceTimer(); // Start timer when recognition starts
+        sessionTranscriptRef.current = [];
+        lastProcessedIndexRef.current = -1;
+        resetSilenceTimer();
       };
 
       recognitionRef.current.onend = () => {
         setIsListening(false);
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        
+        // Add all captured items to the list at once when finished
+        if (sessionTranscriptRef.current.length > 0) {
+          addMultipleItems(sessionTranscriptRef.current);
+          sessionTranscriptRef.current = [];
+          
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+        }
+        
+        lastProcessedIndexRef.current = -1;
+        setInputValue('');
       };
     } else {
       setError('Seu navegador não suporta reconhecimento de voz.');
@@ -158,6 +175,21 @@ export default function App() {
     };
     setItems(prev => [...prev, newItem]);
     setInputValue('');
+  };
+
+  const addMultipleItems = (texts: string[]) => {
+    const newItems: ListItem[] = texts
+      .filter(text => text.trim())
+      .map(text => ({
+        id: Math.random().toString(36).substr(2, 9),
+        text: text.trim(),
+        category: 'Geral',
+        timestamp: Date.now(),
+      }));
+    
+    if (newItems.length > 0) {
+      setItems(prev => [...prev, ...newItems]);
+    }
   };
 
   const removeItem = (id: string) => {
