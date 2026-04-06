@@ -87,23 +87,27 @@ export default function App() {
       recognitionRef.current.onresult = (event: any) => {
         resetSilenceTimer(); // Reset timer on any speech detected
         
+        const currentFinals: string[] = [];
         let interimTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        
+        for (let i = 0; i < event.results.length; ++i) {
           const result = event.results[i];
-          if (result.isFinal && i > lastProcessedIndexRef.current) {
+          if (result.isFinal) {
             const transcript = result[0].transcript.trim();
             if (transcript) {
-              sessionTranscriptRef.current.push(transcript);
+              currentFinals.push(transcript);
             }
-            lastProcessedIndexRef.current = i;
-          } else if (!result.isFinal) {
+          } else {
             interimTranscript += result[0].transcript;
           }
         }
         
+        // Update the session buffer with all final results so far
+        sessionTranscriptRef.current = currentFinals;
+        
         // Show the full session transcript in the input field while talking
-        const finalSoFar = sessionTranscriptRef.current.join(', ');
-        setInputValue(finalSoFar + (interimTranscript ? (finalSoFar ? ', ' : '') + interimTranscript : ''));
+        const finalSoFar = currentFinals.join(' ');
+        setInputValue(finalSoFar + (interimTranscript ? (finalSoFar ? ' ' : '') + interimTranscript : ''));
       };
 
       recognitionRef.current.onerror = (event: any) => {
@@ -130,10 +134,31 @@ export default function App() {
         setIsListening(false);
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         
-        // Add all captured items to the list at once when finished
-        if (sessionTranscriptRef.current.length > 0) {
-          addMultipleItems(sessionTranscriptRef.current);
-          sessionTranscriptRef.current = [];
+        // Process the final transcripts with diff logic to handle cumulative engines
+        const rawTexts = sessionTranscriptRef.current;
+        const processedItems: string[] = [];
+        let lastFullText = '';
+        
+        for (const text of rawTexts) {
+          const currentText = text.trim();
+          if (!currentText) continue;
+
+          // If current text starts with the previous one, it's likely a cumulative update
+          if (lastFullText && currentText.toLowerCase().startsWith(lastFullText.toLowerCase())) {
+            const diff = currentText.substring(lastFullText.length).trim();
+            // Only add if there's a meaningful difference (new words)
+            if (diff && diff.length > 1) {
+              processedItems.push(diff);
+            }
+          } else if (currentText.toLowerCase() !== lastFullText.toLowerCase()) {
+            // It's a completely new result index or different text
+            processedItems.push(currentText);
+          }
+          lastFullText = currentText;
+        }
+
+        if (processedItems.length > 0) {
+          addMultipleItems(processedItems);
           
           confetti({
             particleCount: 100,
@@ -142,6 +167,7 @@ export default function App() {
           });
         }
         
+        sessionTranscriptRef.current = [];
         lastProcessedIndexRef.current = -1;
         setInputValue('');
       };
